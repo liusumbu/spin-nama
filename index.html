@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roda Pemilihan Nama</title>
+    <style>
+      /* Global Styles */
+      body {
+        font-family: "Poppins", Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #fdfbfb, #ebedee);
+        color: #333;
+        text-align: center;
+      }
+
+      h1 {
+        margin-bottom: 10px;
+        font-size: 2.5em;
+        color: #333;
+      }
+
+      /* Input dan Button */
+      #nameInput {
+        display: flex;
+        gap: 10px;
+        margin: 15px 0;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      input[type="text"] {
+        padding: 8px;
+        font-size: 16px;
+        border: 2px solid #ccc;
+        border-radius: 5px;
+        width: 200px;
+      }
+
+      input[type="file"] {
+        margin-top: 10px;
+      }
+
+      button {
+        padding: 10px 15px;
+        font-size: 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      /* Canvas Roda */
+      canvas {
+        border: 5px solid #333;
+        margin: 15px auto;
+        max-width: 90%;
+        border-radius: 50%;
+      }
+
+      /* Popup Modal */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        max-width: 300px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-content h2 {
+        color: #28a745;
+        font-size: 1.8em;
+        margin-bottom: 10px;
+      }
+
+      .modal-content p {
+        font-size: 1.2em;
+        margin: 10px 0;
+      }
+
+      .modal-content button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .modal-content button:hover {
+        background-color: #0056b3;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        h1 {
+          font-size: 2em;
+        }
+
+        input[type="text"],
+        button {
+          width: 100%;
+          margin-top: 5px;
+        }
+
+        #namesList {
+          width: 100%;
+          text-align: center;
+        }
+      }
+
+      .name-item {
+        display: flex;
+        align-items: left;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+        width: 100%;
+      }
+
+      .name-item img {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+      }
+
+      .remove-button {
+        background-color: #dc3545;
+      }
+
+      .remove-button:hover {
+        background-color: #c82333;
+      }
+
+      /* Layout kanan untuk nama */
+      #namesList {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-left: 30px;
+        max-width: 300px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Roda Pemilihan Nama</h1>
+
+    <!-- Daftar Nama (Dipindahkan ke atas) -->
+    <div id="namesList"></div>
+
+    <!-- Form Input Nama -->
+    <div id="nameInput">
+      <input type="text" id="newName" placeholder="Masukkan nama..." />
+      <input type="file" id="newImage" accept="image/*" />
+      <button onclick="addName()">Tambah Nama</button>
+    </div>
+
+    <!-- Canvas untuk roda -->
+    <div style="display: flex; justify-content: center">
+      <canvas id="wheelCanvas" width="400" height="400"></canvas>
+    </div>
+
+    <!-- Tombol Spin -->
+    <button id="spinButton">Putar Roda</button>
+
+    <!-- Hasil Undian -->
+    <div id="result"></div>
+
+    <!-- Popup Modal -->
+    <div id="winnerModal" class="modal">
+      <div class="modal-content">
+        <h2>🎉Silahkan sering🎉</h2>
+        <p id="winnerMessage"></p>
+        <p>Tuhan Yesus memberkatimu!</p>
+        <button onclick="closeModal()">Tutup</button>
+      </div>
+    </div>
+
+    <script>
+      let names = [];
+
+      const canvas = document.getElementById("wheelCanvas");
+      const ctx = canvas.getContext("2d");
+      const spinButton = document.getElementById("spinButton");
+      const result = document.getElementById("result");
+      const winnerModal = document.getElementById("winnerModal");
+      const winnerMessage = document.getElementById("winnerMessage");
+      const namesList = document.getElementById("namesList");
+
+      const wheelColors = [
+        "#FF5733",
+        "#33FF57",
+        "#5733FF",
+        "#FFC300",
+        "#DAF7A6",
+        "#C70039",
+        "#900C3F",
+        "#581845",
+      ];
+      let angle = 0;
+      let spinning = false;
+
+      function addName() {
+        const newName = document.getElementById("newName").value.trim();
+        const newImage = document.getElementById("newImage").files[0];
+
+        if (newName && !names.some((name) => name.name === newName)) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const newNameObj = {
+              name: newName,
+              image: e.target.result,
+            };
+            names.push(newNameObj);
+            document.getElementById("newName").value = "";
+            drawWheel();
+            displayNames();
+          };
+          if (newImage) {
+            reader.readAsDataURL(newImage);
+          } else {
+            const defaultImage = "https://via.placeholder.com/30"; // Placeholder image if no image provided
+            const newNameObj = {
+              name: newName,
+              image: defaultImage,
+            };
+            names.push(newNameObj);
+            document.getElementById("newName").value = "";
+            drawWheel();
+            displayNames();
+          }
+        } else {
+          alert("Nama tidak boleh kosong atau sudah ada!");
+        }
+      }
+
+      function drawWheel() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (names.length === 0) return;
+
+        const sliceAngle = (2 * Math.PI) / names.length;
+        names.forEach((name, i) => {
+          ctx.beginPath();
+          ctx.moveTo(200, 200);
+          ctx.arc(
+            200,
+            200,
+            200,
+            angle + i * sliceAngle,
+            angle + (i + 1) * sliceAngle
+          );
+          ctx.fillStyle = wheelColors[i % wheelColors.length];
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.save();
+          ctx.translate(200, 200);
+          ctx.rotate(angle + (i + 0.5) * sliceAngle);
+          ctx.textAlign = "right";
+          ctx.fillStyle = "white";
+          ctx.font = "24px Arial";
+          ctx.fillText(name.name, 190, 10);
+          ctx.restore();
+        });
+
+        // // Gambar penanda
+        // ctx.beginPath();
+        // ctx.moveTo(200, 10);
+        // ctx.lineTo(200, 30);
+        // ctx.lineWidth = 5;
+        // ctx.strokeStyle = "#000";
+        // ctx.stroke();
+      }
+
+      function spinWheel() {
+        if (spinning || names.length === 0) return;
+
+        spinning = true;
+        result.textContent = "";
+        let spinTime = Math.random() * 3000 + 2000;
+        let spinSpeed = Math.random() * 0.2 + 0.1;
+
+        const spinInterval = setInterval(() => {
+          angle += spinSpeed;
+          drawWheel();
+        }, 30);
+
+        setTimeout(() => {
+          clearInterval(spinInterval);
+          const winnerIndex = Math.floor(
+            ((angle % (2 * Math.PI)) / (2 * Math.PI)) * names.length
+          );
+          winnerMessage.textContent = names[winnerIndex].name;
+          winnerModal.style.display = "flex";
+          spinning = false;
+        }, spinTime);
+      }
+
+      function closeModal() {
+        winnerModal.style.display = "none";
+      }
+
+      function displayNames() {
+        namesList.innerHTML = "";
+        names.forEach((name, index) => {
+          const div = document.createElement("div");
+          div.classList.add("name-item");
+
+          const img = document.createElement("img");
+          img.src = name.image;
+
+          const text = document.createElement("span");
+          text.textContent = name.name;
+
+          const removeButton = document.createElement("button");
+          removeButton.textContent = "Hapus";
+          removeButton.classList.add("remove-button");
+          removeButton.onclick = function () {
+            names.splice(index, 1);
+            drawWheel();
+            displayNames();
+          };
+
+          div.appendChild(img);
+          div.appendChild(text);
+          div.appendChild(removeButton);
+          namesList.appendChild(div);
+        });
+      }
+
+      spinButton.addEventListener("click", spinWheel);
+
+      drawWheel(); // Initial drawing
+    </script>
+  </body>
+</html>
